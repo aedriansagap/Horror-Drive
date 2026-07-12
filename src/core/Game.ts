@@ -110,8 +110,8 @@ export class Game {
     const carPos = this.car.getPosition();
     const carQuat = this.car.getQuaternion();
     
-    // Offset camera slightly up and forward from car center
-    const cameraOffset = new THREE.Vector3(0, 0.5, 0.5); 
+    // Offset camera to simulate sitting in the driver's seat (windshield level)
+    const cameraOffset = new THREE.Vector3(0, 0.8, 0.5); 
     cameraOffset.applyQuaternion(carQuat);
     
     this.camera.position.copy(carPos).add(cameraOffset);

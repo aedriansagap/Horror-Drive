@@ -89,7 +89,13 @@ export class Car {
 
     // 3. Create Visuals (Three.js)
     const chassisGeo = new THREE.BoxGeometry(2, 1, 4);
-    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8, roughness: 0.2 });
+    const chassisMat = new THREE.MeshStandardMaterial({ 
+      color: 0x333333, 
+      metalness: 0.8, 
+      roughness: 0.2,
+      transparent: true,
+      opacity: 0.5 // Semi-transparent so it doesn't blind the camera if clipped
+    });
     this.chassisMesh = new THREE.Mesh(chassisGeo, chassisMat);
     this.chassisMesh.castShadow = true;
     this.chassisMesh.receiveShadow = true;
@@ -107,11 +113,11 @@ export class Car {
     }
 
     // 4. Headlights (Horror vibe)
-    this.leftHeadlight = new THREE.SpotLight(0xffffee, 5000, 200, Math.PI / 5, 0.5, 1);
+    this.leftHeadlight = new THREE.SpotLight(0xffffee, 2000, 150, Math.PI / 4, 0.5, 1);
     this.leftHeadlight.castShadow = true;
     this.leftHeadlight.position.set(0.8, 0.5, 2);
     
-    this.rightHeadlight = new THREE.SpotLight(0xffffee, 5000, 200, Math.PI / 5, 0.5, 1);
+    this.rightHeadlight = new THREE.SpotLight(0xffffee, 2000, 150, Math.PI / 4, 0.5, 1);
     this.rightHeadlight.castShadow = true;
     this.rightHeadlight.position.set(-0.8, 0.5, 2);
 

@@ -3,9 +3,11 @@ import { Game } from './core/Game';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <div id="ui">
-    <div id="speed" style="font-size: 1.5rem; font-weight: bold;">0 km/h</div>
-    <div id="status">Survive.</div>
-    <div id="controls-hint" style="position: absolute; bottom: 20px; left: 20px; color: rgba(255,255,255,0.7);">
+    <div style="display: flex; justify-content: space-between; width: 100%;">
+      <div id="speed" style="font-size: 1.5rem; font-weight: bold;">0 km/h</div>
+      <div id="status">Survive.</div>
+    </div>
+    <div id="controls-hint" style="color: rgba(255,255,255,0.7); text-align: left;">
       Controls: W/A/S/D or Arrows to Drive | SPACE to Brake
     </div>
     <div id="start-screen" class="center-text">
