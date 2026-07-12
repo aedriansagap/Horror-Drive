@@ -33,8 +33,18 @@ export class EnemyManager {
     this.physicsWorld = physicsWorld;
     this.target = target;
 
-    this.zombieMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, roughness: 0.8 }); // Green placeholder
-    this.vampireMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.5 }); // Red placeholder
+    this.zombieMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x00ff00, 
+      emissive: 0x00ff00,
+      emissiveIntensity: 0.5,
+      roughness: 0.8 
+    }); 
+    this.vampireMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xff0000, 
+      emissive: 0xff0000,
+      emissiveIntensity: 0.8,
+      roughness: 0.5 
+    }); 
     
     this.enemyShape = new CANNON.Sphere(1);
     this.enemyGeo = new THREE.SphereGeometry(1, 16, 16);

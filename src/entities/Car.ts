@@ -20,9 +20,9 @@ export class Car {
   private keys: { [key: string]: boolean } = {};
 
   // Engine configuration
-  private maxSteerVal = 0.5;
-  private maxForce = 1000;
-  private brakeForce = 15;
+  private maxSteerVal = 0.4;
+  private maxForce = 2000;
+  private brakeForce = 50;
 
   constructor(scene: THREE.Scene, physicsWorld: CANNON.World, wheelMaterial: CANNON.Material) {
     this.scene = scene;
@@ -107,11 +107,11 @@ export class Car {
     }
 
     // 4. Headlights (Horror vibe)
-    this.leftHeadlight = new THREE.SpotLight(0xffffee, 1000, 100, Math.PI / 6, 0.5, 1);
+    this.leftHeadlight = new THREE.SpotLight(0xffffee, 5000, 200, Math.PI / 5, 0.5, 1);
     this.leftHeadlight.castShadow = true;
     this.leftHeadlight.position.set(0.8, 0.5, 2);
     
-    this.rightHeadlight = new THREE.SpotLight(0xffffee, 1000, 100, Math.PI / 6, 0.5, 1);
+    this.rightHeadlight = new THREE.SpotLight(0xffffee, 5000, 200, Math.PI / 5, 0.5, 1);
     this.rightHeadlight.castShadow = true;
     this.rightHeadlight.position.set(-0.8, 0.5, 2);
 
