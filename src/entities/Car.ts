@@ -88,13 +88,15 @@ export class Car {
     });
 
     // 3. Create Visuals (Three.js)
+    const textureLoader = new THREE.TextureLoader();
+    const carTex = textureLoader.load('/car.png');
+
     const chassisGeo = new THREE.BoxGeometry(2, 1, 4);
     const chassisMat = new THREE.MeshStandardMaterial({ 
-      color: 0x333333, 
+      map: carTex,
+      color: 0x888888, // Darken it slightly
       metalness: 0.8, 
-      roughness: 0.2,
-      transparent: true,
-      opacity: 0.5 // Semi-transparent so it doesn't blind the camera if clipped
+      roughness: 0.2
     });
     this.chassisMesh = new THREE.Mesh(chassisGeo, chassisMat);
     this.chassisMesh.castShadow = true;

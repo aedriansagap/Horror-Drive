@@ -3,6 +3,7 @@ import * as CANNON from 'cannon-es';
 import { World } from '../world/World';
 import { Car } from '../entities/Car';
 import { EnemyManager } from '../entities/EnemyManager';
+import { AudioManager } from '../audio/AudioManager';
 
 export class Game {
   public scene: THREE.Scene;
@@ -13,6 +14,7 @@ export class Game {
   public worldManager: World;
   public car: Car;
   public enemyManager: EnemyManager;
+  public audioManager: AudioManager;
   
   public isRunning: boolean = false;
   private lastTime: number = 0;
@@ -56,6 +58,7 @@ export class Game {
     this.worldManager = new World(this.scene, this.physicsWorld, groundMaterial);
     this.car = new Car(this.scene, this.physicsWorld, wheelMaterial);
     this.enemyManager = new EnemyManager(this.scene, this.physicsWorld, this.car);
+    this.audioManager = new AudioManager();
 
     // Handle Resize
     window.addEventListener('resize', this.onWindowResize.bind(this));
@@ -66,6 +69,10 @@ export class Game {
 
   public start() {
     if (this.isRunning) return;
+    
+    // Audio Context needs user gesture to start
+    this.audioManager.init();
+
     this.isRunning = true;
     this.car.reset();
     this.worldManager.reset();
@@ -77,6 +84,7 @@ export class Game {
   public gameOver() {
     this.isRunning = false;
     document.getElementById('game-over-screen')?.classList.remove('hidden');
+    this.audioManager.stop();
     
     // Clean up inputs so car stops
     this.car.brake();
@@ -99,6 +107,7 @@ export class Game {
     this.car.update(safeDt);
     this.worldManager.update(this.car.getPosition());
     this.enemyManager.update(safeDt);
+    this.audioManager.updateEngine(this.car.getSpeed());
 
     // Check game over condition
     if (this.enemyManager.checkCollisions(this.car.getPosition())) {
@@ -125,6 +134,42 @@ export class Game {
     // Render
     this.renderer.render(this.scene, this.camera);
     
+    // Radar Logic
+    const radar = document.getElementById('radar') as HTMLCanvasElement;
+    if (radar) {
+      const ctx = radar.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, radar.width, radar.height);
+        
+        const cx = radar.width / 2;
+        const cy = radar.height / 2;
+        const scale = 1.0;
+
+        // Draw Player
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw Enemies
+        const enemies = this.enemyManager.getEnemies();
+        for (const enemy of enemies) {
+          const dx = enemy.body.position.x - carPos.x;
+          const dz = enemy.body.position.z - carPos.z;
+          
+          const rx = cx + dx * scale;
+          const ry = cy + dz * scale;
+
+          if (Math.hypot(dx, dz) < radar.width / 2 / scale) {
+            ctx.fillStyle = enemy.type === 'vampire' ? 'red' : 'lime';
+            ctx.beginPath();
+            ctx.arc(rx, ry, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
     // Update UI
     document.getElementById('speed')!.innerText = `${Math.floor(this.car.getSpeed())} km/h`;
   }

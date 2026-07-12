@@ -3,6 +3,7 @@ import { Game } from './core/Game';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <div id="ui">
+    <canvas id="radar" width="150" height="150" style="position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.5); border: 2px solid #555; border-radius: 50%; pointer-events: none;"></canvas>
     <div style="display: flex; justify-content: space-between; width: 100%;">
       <div id="speed" style="font-size: 1.5rem; font-weight: bold;">0 km/h</div>
       <div id="status">Survive.</div>

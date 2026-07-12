@@ -27,12 +27,18 @@ export class World {
     this.physicsWorld = physicsWorld;
     this.groundMaterial = groundMaterial;
 
+    const textureLoader = new THREE.TextureLoader();
+    const terrainTex = textureLoader.load('/terrain.png');
+    terrainTex.wrapS = THREE.RepeatWrapping;
+    terrainTex.wrapT = THREE.RepeatWrapping;
+    terrainTex.repeat.set(4, 4);
+
     // Materials
     this.terrainMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x1a3300, // Dark dirty green
+      map: terrainTex,
+      color: 0x555555, // Darken the texture
       roughness: 0.9,
       metalness: 0.1,
-      flatShading: true,
     });
 
     // Environment Lighting

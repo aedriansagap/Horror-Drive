@@ -59,6 +59,10 @@ export class EnemyManager {
     this.spawnTimer = 0;
   }
 
+  public getEnemies() {
+    return this.enemies;
+  }
+
   public update(dt: number) {
     const targetPos = this.target.getPosition();
 
@@ -96,6 +100,14 @@ export class EnemyManager {
       // Apply velocity (ignore Y to stick to ground mostly, though gravity handles Y)
       enemy.body.velocity.x = dir.x * enemy.speed;
       enemy.body.velocity.z = dir.z * enemy.speed;
+
+      // Vampire Jump Logic
+      if (enemy.type === 'vampire') {
+        // Randomly jump if close to the ground
+        if (Math.random() < 0.02 && Math.abs(enemy.body.velocity.y) < 1) {
+          enemy.body.velocity.y = 15; // Leap into the air
+        }
+      }
       
       // Sync visual
       enemy.mesh.position.copy(enemy.body.position as any);
