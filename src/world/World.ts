@@ -1,181 +1,156 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { createNoise2D } from 'simplex-noise';
+import { RoadSystem } from './RoadSystem';
 
 export class World {
   private scene: THREE.Scene;
   private physicsWorld: CANNON.World;
   private groundMaterial: CANNON.Material;
 
-  private noise2D = createNoise2D();
-  
-  // Lighting and Environment
-  private ambientLight: THREE.AmbientLight;
-  private moonLight: THREE.DirectionalLight;
-  private timeOfDay = 0;
+  public roadSystem: RoadSystem;
 
-  // Terrain chunks
-  private chunkSize = 100;
-  private chunkResolution = 20; // 20x20 segments
-  private maxViewDistanceChunks = 2; // Create 5x5 chunks around player
-  
-  private chunks = new Map<string, { mesh: THREE.Mesh, body: CANNON.Body }>();
-  private terrainMaterial: THREE.MeshStandardMaterial;
+  // Environment Lighting
+  private ambientLight: THREE.AmbientLight;
+  private hemiLight: THREE.HemisphereLight;
+  private moonLight: THREE.DirectionalLight;
+
+  // Weather & Atmosphere
+  private rainParticles: THREE.Points | null = null;
+  private rainCount = 1800;
+  private rainGeo: THREE.BufferGeometry | null = null;
+  private lightningLight: THREE.DirectionalLight;
+  private lightningFlashTimer = 0;
+  private isFlashing = false;
+
+  // Callback for thunder sound trigger
+  public onThunder: (() => void) | null = null;
 
   constructor(scene: THREE.Scene, physicsWorld: CANNON.World, groundMaterial: CANNON.Material) {
     this.scene = scene;
     this.physicsWorld = physicsWorld;
     this.groundMaterial = groundMaterial;
 
-    const textureLoader = new THREE.TextureLoader();
-    const terrainTex = textureLoader.load('/terrain.png');
-    terrainTex.wrapS = THREE.RepeatWrapping;
-    terrainTex.wrapT = THREE.RepeatWrapping;
-    terrainTex.repeat.set(4, 4);
+    // Atmospheric deep night fog
+    this.scene.background = new THREE.Color(0x060b14);
+    this.scene.fog = new THREE.FogExp2(0x060b14, 0.0075);
 
-    // Materials
-    this.terrainMaterial = new THREE.MeshStandardMaterial({ 
-      map: terrainTex,
-      color: 0x555555, // Darken the texture
-      roughness: 0.9,
-      metalness: 0.1,
-    });
-
-    // Environment Lighting
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.05); // Very dark
+    // Environment Lighting: eerie moonlight
+    this.ambientLight = new THREE.AmbientLight(0x445877, 1.4);
     this.scene.add(this.ambientLight);
 
-    this.moonLight = new THREE.DirectionalLight(0x4466ff, 0.2); // Blueish moon
-    this.moonLight.position.set(100, 100, 50);
+    this.hemiLight = new THREE.HemisphereLight(0x667799, 0x1a2233, 1.1);
+    this.scene.add(this.hemiLight);
+
+    this.moonLight = new THREE.DirectionalLight(0x88aaff, 1.8);
+    this.moonLight.position.set(80, 100, 40);
     this.moonLight.castShadow = true;
-    this.moonLight.shadow.camera.left = -100;
-    this.moonLight.shadow.camera.right = 100;
-    this.moonLight.shadow.camera.top = 100;
-    this.moonLight.shadow.camera.bottom = -100;
+    this.moonLight.shadow.mapSize.width = 1024;
+    this.moonLight.shadow.mapSize.height = 1024;
+    this.moonLight.shadow.camera.near = 10;
+    this.moonLight.shadow.camera.far = 300;
+    this.moonLight.shadow.camera.left = -60;
+    this.moonLight.shadow.camera.right = 60;
+    this.moonLight.shadow.camera.top = 60;
+    this.moonLight.shadow.camera.bottom = -60;
     this.scene.add(this.moonLight);
 
-    this.scene.fog = new THREE.FogExp2(0x020205, 0.04);
-    this.scene.background = new THREE.Color(0x020205);
+    // Lightning Flash Light
+    this.lightningLight = new THREE.DirectionalLight(0xddeeff, 0);
+    this.lightningLight.position.set(0, 150, 0);
+    this.scene.add(this.lightningLight);
+
+    // Road & Environment System
+    this.roadSystem = new RoadSystem(this.scene, this.physicsWorld, this.groundMaterial);
+
+    // Setup Rain Particles
+    this.setupRain();
+  }
+
+  private setupRain() {
+    this.rainGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(this.rainCount * 3);
+    for (let i = 0; i < this.rainCount; i++) {
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 60;
+      positions[i * 3 + 1] = Math.random() * 30;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+    }
+    this.rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const rainMat = new THREE.PointsMaterial({
+      color: 0x88aacc,
+      size: 0.18,
+      transparent: true,
+      opacity: 0.6,
+    });
+
+    this.rainParticles = new THREE.Points(this.rainGeo, rainMat);
+    this.scene.add(this.rainParticles);
+  }
+
+  public update(playerPos: THREE.Vector3, dt: number = 0.016) {
+    // 1. Update procedural road chunks based on player Z
+    this.roadSystem.update(playerPos.z);
+
+    // 2. Keep moonlight tracking near player
+    this.moonLight.position.set(playerPos.x + 60, playerPos.y + 100, playerPos.z + 40);
+    this.moonLight.target.position.set(playerPos.x, playerPos.y, playerPos.z);
+    this.moonLight.target.updateMatrixWorld();
+
+    // 3. Update rain particle volume following the player
+    if (this.rainParticles && this.rainGeo) {
+      this.rainParticles.position.set(playerPos.x, 0, playerPos.z);
+      const posAttr = this.rainGeo.attributes.position as THREE.BufferAttribute;
+      const arr = posAttr.array as Float32Array;
+      for (let i = 0; i < this.rainCount; i++) {
+        // Fall down fast
+        arr[i * 3 + 1] -= dt * 42.0;
+        if (arr[i * 3 + 1] < 0) {
+          arr[i * 3 + 1] = 25.0 + Math.random() * 5.0;
+          arr[i * 3 + 0] = (Math.random() - 0.5) * 60;
+          arr[i * 3 + 2] = (Math.random() - 0.5) * 60;
+        }
+      }
+      posAttr.needsUpdate = true;
+    }
+
+    // 4. Random Lightning Flashes (every 18 - 35 seconds)
+    this.lightningFlashTimer += dt;
+    if (!this.isFlashing && this.lightningFlashTimer > 20 && Math.random() < 0.003) {
+      this.triggerLightning();
+    }
+  }
+
+  private triggerLightning() {
+    this.isFlashing = true;
+    this.lightningFlashTimer = 0;
+    this.lightningLight.intensity = 4.0;
+    this.scene.fog!.color.set(0x334466);
+
+    // Double flash flicker
+    setTimeout(() => {
+      this.lightningLight.intensity = 0.5;
+      setTimeout(() => {
+        this.lightningLight.intensity = 5.5;
+        setTimeout(() => {
+          this.lightningLight.intensity = 0;
+          this.scene.fog!.color.set(0x04050a);
+          this.isFlashing = false;
+
+          // Sound delay for realistic distance
+          if (this.onThunder) {
+            setTimeout(() => {
+              if (this.onThunder) this.onThunder();
+            }, 800 + Math.random() * 800);
+          }
+        }, 90);
+      }, 50);
+    }, 70);
   }
 
   public reset() {
-    this.timeOfDay = 0;
-    // Clear chunks
-    this.chunks.forEach(chunk => {
-      this.scene.remove(chunk.mesh);
-      chunk.mesh.geometry.dispose();
-      this.physicsWorld.removeBody(chunk.body);
-    });
-    this.chunks.clear();
-  }
-
-  public update(playerPos: THREE.Vector3) {
-    // 1. Day Night Cycle (Optional subtle changes)
-    this.timeOfDay += 0.001;
-    // Let's keep it mostly night/spooky, so limit light changes
-    
-    // 2. Procedural Terrain Generation
-    const currentChunkX = Math.floor(playerPos.x / this.chunkSize);
-    const currentChunkZ = Math.floor(playerPos.z / this.chunkSize);
-
-    const neededChunks = new Set<string>();
-
-    for (let x = -this.maxViewDistanceChunks; x <= this.maxViewDistanceChunks; x++) {
-      for (let z = -this.maxViewDistanceChunks; z <= this.maxViewDistanceChunks; z++) {
-        const cx = currentChunkX + x;
-        const cz = currentChunkZ + z;
-        const key = `${cx},${cz}`;
-        neededChunks.add(key);
-
-        if (!this.chunks.has(key)) {
-          this.generateChunk(cx, cz);
-        }
-      }
-    }
-
-    // Cleanup old chunks
-    for (const [key, chunk] of this.chunks.entries()) {
-      if (!neededChunks.has(key)) {
-        this.scene.remove(chunk.mesh);
-        chunk.mesh.geometry.dispose();
-        this.physicsWorld.removeBody(chunk.body);
-        this.chunks.delete(key);
-      }
-    }
-  }
-
-  private generateChunk(cx: number, cz: number) {
-    const geo = new THREE.PlaneGeometry(this.chunkSize, this.chunkSize, this.chunkResolution, this.chunkResolution);
-    geo.rotateX(-Math.PI / 2); // Lay flat
-    
-    const vertices = geo.attributes.position.array;
-    const heightData: number[][] = [];
-    
-    // Generate heights
-    for (let i = 0; i <= this.chunkResolution; i++) {
-        heightData.push([]);
-    }
-
-    let vertexIdx = 0;
-    for (let i = 0; i <= this.chunkResolution; i++) {
-      for (let j = 0; j <= this.chunkResolution; j++) {
-        const x = (cx * this.chunkSize) + (j * (this.chunkSize / this.chunkResolution)) - (this.chunkSize / 2);
-        const z = (cz * this.chunkSize) + (i * (this.chunkSize / this.chunkResolution)) - (this.chunkSize / 2);
-        
-        // Simplex noise for rolling hills
-        const scale1 = 0.02;
-        const scale2 = 0.05;
-        let y = this.noise2D(x * scale1, z * scale1) * 10;
-        y += this.noise2D(x * scale2, z * scale2) * 2;
-        
-        // Flatten the center slightly for a starting road area
-        const distFromCenter = Math.sqrt(x*x + z*z);
-        if (distFromCenter < 20) {
-            y *= (distFromCenter / 20); // Smooth transition
-        }
-
-        vertices[vertexIdx + 1] = y;
-        heightData[i][j] = y;
-        
-        vertexIdx += 3;
-      }
-    }
-
-    geo.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(geo, this.terrainMaterial);
-    mesh.receiveShadow = true;
-    this.scene.add(mesh);
-
-    // Physics Heightfield
-    // Cannon-es Heightfield expects data in [x][y] format (or [x][z] in our terms)
-    // Note: Heightfield in cannon is generated differently, we need to transpose
-    const physicsHeightData: number[][] = [];
-    for (let i = 0; i < this.chunkResolution + 1; i++) {
-      physicsHeightData.push([]);
-      for (let j = 0; j < this.chunkResolution + 1; j++) {
-        physicsHeightData[i].push(heightData[this.chunkResolution - j][i]);
-      }
-    }
-
-    const hfShape = new CANNON.Heightfield(physicsHeightData, {
-      elementSize: this.chunkSize / this.chunkResolution
-    });
-
-    const body = new CANNON.Body({ mass: 0, material: this.groundMaterial });
-    body.addShape(hfShape);
-    
-    // Position the heightfield correctly
-    body.position.set(
-      cx * this.chunkSize - (this.chunkSize / 2),
-      0,
-      cz * this.chunkSize + (this.chunkSize / 2)
-    );
-    // Heightfield needs to be rotated to match our plane
-    body.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-
-    this.physicsWorld.addBody(body);
-    
-    this.chunks.set(`${cx},${cz}`, { mesh, body });
+    this.roadSystem.reset();
+    this.lightningFlashTimer = 0;
+    this.isFlashing = false;
+    this.lightningLight.intensity = 0;
   }
 }
