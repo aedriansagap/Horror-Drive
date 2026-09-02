@@ -187,10 +187,19 @@ export class Game {
     this.threatsAvoided = 0;
     this.threatsHit = 0;
 
-    this.car.reset();
-    this.worldManager.reset();
+    this.car.reset(20);
+    this.worldManager.reset(20);
+    this.worldManager.update(this.car.getPosition(), 0.016);
     this.enemyManager.reset();
     this.hud.setVisible(true);
+
+    // Immediately snap camera to vehicle
+    const carPos = this.car.getPosition();
+    const carQuat = this.car.getQuaternion();
+    const chaseOffset = new THREE.Vector3(0, 2.3, -6.4).applyQuaternion(carQuat);
+    this.camera.position.copy(carPos).add(chaseOffset);
+    const lookOffset = new THREE.Vector3(0, 1.2, 14.0).applyQuaternion(carQuat);
+    this.camera.lookAt(carPos.clone().add(lookOffset));
 
     this.lastTime = performance.now();
     this.loop(this.lastTime);

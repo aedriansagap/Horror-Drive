@@ -663,11 +663,12 @@ export class RoadSystem {
     this.physicsWorld.removeBody(chunk.physicsBody);
   }
 
-  public reset() {
+  public reset(playerZ: number = 20) {
     for (const chunk of this.chunks.values()) {
       this.destroyChunk(chunk);
     }
     this.chunks.clear();
     this.activeLights = [];
+    this.update(playerZ);
   }
 }

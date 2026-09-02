@@ -491,8 +491,8 @@ export class Car {
     this.scene.add(this.exhaustParticles);
   }
 
-  public cycleHeadlights() {
-    this.headlightMode = (this.headlightMode + 1) % 3;
+  public setHeadlightMode(mode: 0 | 1 | 2) {
+    this.headlightMode = mode;
     if (this.headlightMode === 0) {
       // Off
       this.leftHeadlight.intensity = 0;
@@ -501,25 +501,29 @@ export class Car {
       this.rightLightCone.visible = false;
     } else if (this.headlightMode === 1) {
       // Low Beam
-      this.leftHeadlight.intensity = 3500;
-      this.rightHeadlight.intensity = 3500;
-      this.leftHeadlight.distance = 90;
-      this.rightHeadlight.distance = 90;
+      this.leftHeadlight.intensity = 4500;
+      this.rightHeadlight.intensity = 4500;
+      this.leftHeadlight.distance = 120;
+      this.rightHeadlight.distance = 120;
       this.leftLightCone.visible = true;
       this.rightLightCone.visible = true;
       this.leftLightCone.scale.set(0.7, 0.7, 0.6);
       this.rightLightCone.scale.set(0.7, 0.7, 0.6);
     } else {
       // High Beam
-      this.leftHeadlight.intensity = 9500;
-      this.rightHeadlight.intensity = 9500;
-      this.leftHeadlight.distance = 240;
-      this.rightHeadlight.distance = 240;
+      this.leftHeadlight.intensity = 12000;
+      this.rightHeadlight.intensity = 12000;
+      this.leftHeadlight.distance = 280;
+      this.rightHeadlight.distance = 280;
       this.leftLightCone.visible = true;
       this.rightLightCone.visible = true;
       this.leftLightCone.scale.set(1.0, 1.0, 1.0);
       this.rightLightCone.scale.set(1.0, 1.0, 1.0);
     }
+  }
+
+  public cycleHeadlights() {
+    this.setHeadlightMode(((this.headlightMode + 1) % 3) as 0 | 1 | 2);
   }
 
   public getPosition(): THREE.Vector3 {
@@ -543,15 +547,14 @@ export class Car {
     return this.chassisBody.velocity.length() * 3.6; // km/h
   }
 
-  public reset(startZ: number = 5) {
+  public reset(startZ: number = 20) {
     this.chassisBody.position.set(0, 0.85, startZ);
     this.chassisBody.velocity.set(0, 0, 0);
     this.chassisBody.angularVelocity.set(0, 0, 0);
     this.chassisBody.quaternion.set(0, 0, 0, 1);
     this.health = 100;
     this.fuel = 100;
-    this.headlightMode = 2;
-    this.cycleHeadlights(); // refresh intensities
+    this.setHeadlightMode(2); // Set to High Beam default
   }
 
   public brake() {
@@ -577,21 +580,20 @@ export class Car {
     const brake = this.keys[' '];
 
     // Throttle & Reverse Logic
-    // In Cannon RaycastVehicle with indexForwardAxis: 2, positive force pushes along +Z (Forward!)
+    // In Cannon RaycastVehicle with indexForwardAxis: 2, negative force pushes along +Z (Forward!)
     let engineForce = 0;
     if (up) {
       this.gear = 'D';
       this.isReversing = false;
       this.isBraking = false;
-      // Progressive acceleration curve
-      engineForce = this.baseMaxForce;
+      engineForce = -this.baseMaxForce;
     } else if (down) {
       if (speed < 5) {
         // Reverse
         this.gear = 'R';
         this.isReversing = true;
         this.isBraking = false;
-        engineForce = -this.baseMaxForce * 0.55;
+        engineForce = this.baseMaxForce * 0.55;
       } else {
         // Foot brake
         this.gear = 'D';
@@ -618,10 +620,10 @@ export class Car {
     }
 
     // Dynamic steering: tighter at low speeds, stable at high speeds
-    const targetMaxSteer = THREE.MathUtils.lerp(0.42, 0.22, Math.min(speed / 100, 1));
+    const targetMaxSteer = THREE.MathUtils.lerp(0.42, 0.20, Math.min(speed / 100, 1));
     let targetSteer = 0;
-    if (left) targetSteer += targetMaxSteer;
-    if (right) targetSteer -= targetMaxSteer;
+    if (left) targetSteer -= targetMaxSteer; // negative X is left
+    if (right) targetSteer += targetMaxSteer; // positive X is right
 
     // Smooth steering input
     this.currentSteerAngle = THREE.MathUtils.lerp(this.currentSteerAngle, targetSteer, dt * 14);
@@ -633,7 +635,7 @@ export class Car {
       this.steeringWheel.rotation.z = -this.currentSteerAngle * 3.5;
     }
 
-    // Braking & Handbrake
+    // Braking & Handbrake & Natural Rolling Resistance
     if (brake) {
       this.vehicle.setBrake(this.brakeForce, 0);
       this.vehicle.setBrake(this.brakeForce, 1);
@@ -641,10 +643,16 @@ export class Car {
       this.vehicle.setBrake(this.handbrakeForce, 3);
       this.isBraking = true;
     } else if (this.isBraking) {
-      this.vehicle.setBrake(this.brakeForce, 0);
-      this.vehicle.setBrake(this.brakeForce, 1);
-      this.vehicle.setBrake(this.brakeForce, 2);
-      this.vehicle.setBrake(this.brakeForce, 3);
+      this.vehicle.setBrake(this.brakeForce * 0.8, 0);
+      this.vehicle.setBrake(this.brakeForce * 0.8, 1);
+      this.vehicle.setBrake(this.brakeForce * 0.8, 2);
+      this.vehicle.setBrake(this.brakeForce * 0.8, 3);
+    } else if (!up && !down) {
+      // Rolling resistance
+      this.vehicle.setBrake(30, 0);
+      this.vehicle.setBrake(30, 1);
+      this.vehicle.setBrake(40, 2);
+      this.vehicle.setBrake(40, 3);
     } else {
       this.vehicle.setBrake(0, 0);
       this.vehicle.setBrake(0, 1);

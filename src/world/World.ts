@@ -61,6 +61,7 @@ export class World {
 
     // Road & Environment System
     this.roadSystem = new RoadSystem(this.scene, this.physicsWorld, this.groundMaterial);
+    this.roadSystem.update(20);
 
     // Setup Rain Particles
     this.setupRain();
@@ -147,8 +148,8 @@ export class World {
     }, 70);
   }
 
-  public reset() {
-    this.roadSystem.reset();
+  public reset(playerZ: number = 20) {
+    this.roadSystem.reset(playerZ);
     this.lightningFlashTimer = 0;
     this.isFlashing = false;
     this.lightningLight.intensity = 0;
